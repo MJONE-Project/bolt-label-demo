@@ -28,10 +28,11 @@
   .bar i { position:absolute; left:0; top:0; bottom:0; background:var(--blue); }
   .bar b { position:absolute; right:0; top:14px; font-size:11px; color:var(--mute); font-weight:400; }
   table { width:100%; border-collapse:collapse; font-size:12.5px; }
-  th, td { text-align:left; padding:9px 12px; border-bottom:1px solid var(--rule); vertical-align:top; }
+  th, td { text-align:left; padding:9px 10px; border-bottom:1px solid var(--rule); vertical-align:top; }
+  td.k { white-space:nowrap; }
   th { color:var(--mute); font-weight:700; font-size:11px; background:#fff; }
   td.num { text-align:right; font-variant-numeric:tabular-nums; white-space:nowrap; }
-  .tag { display:inline-block; font-size:10.5px; font-weight:700; color:#fff; padding:2px 7px; }
+  .tag { display:inline-block; font-size:10.5px; font-weight:700; color:#fff; padding:2px 7px; white-space:nowrap; }
   .tag.in { background:var(--blue); } .tag.sale { background:var(--navy); } .tag.fix { background:var(--gold); }
   .act { display:grid; grid-template-columns:1fr 1fr; gap:10px; margin:0 0 14px; }
   button { font:inherit; font-weight:700; font-size:14px; padding:14px 8px; border:0; color:#fff; background:var(--navy); cursor:pointer; }
@@ -54,8 +55,8 @@
     <div class="kv">
       <div><div class="k">初期長</div><div class="v" id="init">50.0<small>m</small></div></div>
       <div><div class="k">理論残</div><div class="v" id="theo">32.4<small>m</small></div></div>
-      <div><div class="k">前回実測</div><div class="v" id="meas">32.0<small>m</small></div></div>
-      <div class="warn"><div class="k">差異（理論−実測）</div><div class="v" id="diff">+0.4<small>m</small></div></div>
+      <div><div class="k" id="meask">前回実測</div><div class="v" id="meas">38.5<small>m</small></div></div>
+      <div class="warn"><div class="k">前回補正時の差異（理論−実測）</div><div class="v" id="diff">+0.4<small>m</small></div></div>
     </div>
     <div class="bar"><i id="barfill" style="width:64.8%"></i><b id="barlabel">残 64.8%</b></div>
   </div>
@@ -91,7 +92,7 @@
 <script>
 (function () {
   const KEY = 'bolt-demo-NT-2026-0001';
-  const BASE = { init: 50.0, theo: 32.4, meas: 32.0,
+  const BASE = { init: 50.0, theo: 32.4, meas: 38.5, measAt: '2026-09-08', lastDiff: 0.4,
     hist: [
       { t: '2026-08-20 10:12', k: 'in',   s: '入荷・初期長登録 50.0m', r: 50.0 },
       { t: '2026-08-27 14:03', k: 'sale', s: '販売 3.0m', r: 47.0 },
@@ -111,10 +112,10 @@
     $('init').innerHTML = f1(st.init) + '<small>m</small>';
     $('theo').innerHTML = f1(st.theo) + '<small>m</small>';
     $('meas').innerHTML = f1(st.meas) + '<small>m</small>';
-    const d = st.theo - st.meas; $('diff').innerHTML = (d >= 0 ? '+' : '') + f1(d) + '<small>m</small>';
+    const d = st.lastDiff; $('diff').innerHTML = (d >= 0 ? '+' : '') + f1(d) + '<small>m</small>'; $('meask').textContent = '前回実測（' + st.measAt + '）';
     const pct = Math.max(0, Math.min(100, st.theo / st.init * 100)); $('barfill').style.width = pct.toFixed(1) + '%'; $('barlabel').textContent = '残 ' + pct.toFixed(1) + '%';
     const lab = { in: '入荷', sale: '販売', fix: '補正' };
-    $('hist').innerHTML = st.hist.slice().reverse().map(h => `<tr><td>${h.t}</td><td><span class="tag ${h.k}">${lab[h.k]}</span></td><td>${h.s}</td><td class="num">${f1(h.r)}m</td></tr>`).join('');
+    $('hist').innerHTML = st.hist.slice().reverse().map(h => `<tr><td>${h.t}</td><td class="k"><span class="tag ${h.k}">${lab[h.k]}</span></td><td>${h.s}</td><td class="num">${f1(h.r)}m</td></tr>`).join('');
   }
   $('now').textContent = stamp();
   $('btnSale').onclick = () => { $('saleCard').style.display = ''; $('fixCard').style.display = 'none'; $('saleLen').focus(); };
@@ -124,7 +125,7 @@
   $('saleForm').onsubmit = e => { e.preventDefault(); const v = parseFloat($('saleLen').value); if (!(v > 0)) return;
     st.theo = Math.max(0, st.theo - v); st.hist.push({ t: stamp(), k: 'sale', s: `販売 ${f1(v)}m`, r: st.theo }); save(); render(); $('saleLen').value = ''; $('saleCard').style.display = 'none'; };
   $('fixForm').onsubmit = e => { e.preventDefault(); const v = parseFloat($('fixLen').value); if (!(v >= 0)) return;
-    const d = st.theo - v; st.hist.push({ t: stamp(), k: 'fix', s: `実測 ${f1(v)}m（差異 ${d >= 0 ? '+' : ''}${f1(d)}m）→ 補正`, r: v }); st.meas = v; st.theo = v; save(); render(); $('fixLen').value = ''; $('fixCard').style.display = 'none'; };
+    const d = st.theo - v; st.hist.push({ t: stamp(), k: 'fix', s: `実測 ${f1(v)}m（差異 ${d >= 0 ? '+' : ''}${f1(d)}m）→ 補正`, r: v }); st.meas = v; st.measAt = stamp().slice(0, 10); st.lastDiff = d; st.theo = v; save(); render(); $('fixLen').value = ''; $('fixCard').style.display = 'none'; };
   $('reset').onclick = e => { e.preventDefault(); try { localStorage.removeItem(KEY); } catch (er) {} load(); render(); };
   load(); render();
 })();
