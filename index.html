@@ -1,0 +1,133 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<meta name="robots" content="noindex">
+<title>反物管理デモ</title>
+<style>
+  :root { --navy:#1B2A4A; --blue:#2F5D9E; --pale:#EDF2F9; --pale2:#D3DEEF; --ink:#1F2933; --mute:#66717F; --rule:#C5CFDC; --wine:#550022; --winePale:#F4EBEE; --gold:#AD9947; }
+  * { box-sizing:border-box; }
+  body { margin:0; font-family:"Noto Sans JP","Hiragino Sans","Yu Gothic",sans-serif; color:var(--ink); background:#F6F8FB; }
+  header { background:var(--navy); color:#fff; padding:14px 18px; display:flex; align-items:center; justify-content:space-between; }
+  header .t { font-size:15px; font-weight:700; }
+  header .d { font-size:11px; color:var(--pale2); }
+  main { max-width:520px; margin:0 auto; padding:16px 16px 40px; }
+  .card { background:#fff; border:1px solid var(--rule); margin-bottom:14px; }
+  .card h2 { margin:0; padding:10px 14px; font-size:12px; font-weight:700; color:var(--blue); border-bottom:1px solid var(--rule); background:var(--pale); }
+  .id { display:flex; align-items:center; gap:12px; padding:14px; }
+  .id .code { font-size:22px; font-weight:700; color:var(--navy); letter-spacing:.02em; }
+  .id .name { font-size:13px; color:var(--mute); }
+  .kv { display:grid; grid-template-columns:1fr 1fr; gap:1px; background:var(--rule); }
+  .kv div { background:#fff; padding:12px 14px; }
+  .kv .k { font-size:11px; color:var(--mute); }
+  .kv .v { font-size:20px; font-weight:700; color:var(--navy); margin-top:2px; }
+  .kv .v small { font-size:12px; font-weight:400; color:var(--mute); margin-left:2px; }
+  .kv .warn .v { color:var(--wine); }
+  .bar { height:10px; background:var(--pale2); margin:0 14px 14px; position:relative; }
+  .bar i { position:absolute; left:0; top:0; bottom:0; background:var(--blue); }
+  .bar b { position:absolute; right:0; top:14px; font-size:11px; color:var(--mute); font-weight:400; }
+  table { width:100%; border-collapse:collapse; font-size:12.5px; }
+  th, td { text-align:left; padding:9px 12px; border-bottom:1px solid var(--rule); vertical-align:top; }
+  th { color:var(--mute); font-weight:700; font-size:11px; background:#fff; }
+  td.num { text-align:right; font-variant-numeric:tabular-nums; white-space:nowrap; }
+  .tag { display:inline-block; font-size:10.5px; font-weight:700; color:#fff; padding:2px 7px; }
+  .tag.in { background:var(--blue); } .tag.sale { background:var(--navy); } .tag.fix { background:var(--gold); }
+  .act { display:grid; grid-template-columns:1fr 1fr; gap:10px; margin:0 0 14px; }
+  button { font:inherit; font-weight:700; font-size:14px; padding:14px 8px; border:0; color:#fff; background:var(--navy); cursor:pointer; }
+  button.alt { background:#fff; color:var(--navy); border:1.5px solid var(--navy); }
+  form { padding:14px; display:none; border-top:1px solid var(--rule); }
+  form.open { display:block; }
+  label { display:block; font-size:12px; color:var(--mute); margin-bottom:6px; }
+  input { font:inherit; font-size:20px; width:100%; padding:10px 12px; border:1px solid var(--rule); margin-bottom:10px; }
+  .row { display:flex; gap:10px; } .row button { flex:1; padding:12px; }
+  .note { font-size:11px; color:var(--mute); padding:0 2px 10px; line-height:1.6; }
+  .reset { text-align:center; font-size:11px; color:var(--mute); margin-top:8px; }
+  .reset a { color:var(--blue); }
+</style>
+</head>
+<body>
+<header><div><div class="t">反物管理（デモ）</div><div class="d">QRラベル読取 → 反物詳細</div></div><div class="d" id="now"></div></header>
+<main>
+  <div class="card">
+    <div class="id"><div><div class="code" id="bid">NT-2026-0001</div><div class="name" id="bname">綿ローン 花柄 ／ 幅110cm ／ 3F</div></div></div>
+    <div class="kv">
+      <div><div class="k">初期長</div><div class="v" id="init">50.0<small>m</small></div></div>
+      <div><div class="k">理論残</div><div class="v" id="theo">32.4<small>m</small></div></div>
+      <div><div class="k">前回実測</div><div class="v" id="meas">32.0<small>m</small></div></div>
+      <div class="warn"><div class="k">差異（理論−実測）</div><div class="v" id="diff">+0.4<small>m</small></div></div>
+    </div>
+    <div class="bar"><i id="barfill" style="width:64.8%"></i><b id="barlabel">残 64.8%</b></div>
+  </div>
+
+  <div class="act">
+    <button id="btnSale">販売長を入力</button>
+    <button class="alt" id="btnFix">実測を登録</button>
+  </div>
+  <div class="card" id="saleCard" style="display:none">
+    <h2>販売長を入力</h2>
+    <form class="open" id="saleForm">
+      <label>販売した長さ（m）</label>
+      <input type="number" step="0.1" min="0.1" id="saleLen" placeholder="例: 1.5" inputmode="decimal">
+      <div class="row"><button type="submit">理論在庫を更新</button><button type="button" class="alt" id="saleCancel">やめる</button></div>
+    </form>
+  </div>
+  <div class="card" id="fixCard" style="display:none">
+    <h2>実測を登録（理論値との差異を確認して補正）</h2>
+    <form class="open" id="fixForm">
+      <label>実測した残量（m）</label>
+      <input type="number" step="0.1" min="0" id="fixLen" placeholder="例: 31.8" inputmode="decimal">
+      <div class="row"><button type="submit">差異を記録して補正</button><button type="button" class="alt" id="fixCancel">やめる</button></div>
+    </form>
+  </div>
+
+  <div class="card">
+    <h2>履歴（入荷・販売・実測補正）</h2>
+    <table><thead><tr><th>日時</th><th>区分</th><th>内容</th><th style="text-align:right">理論残</th></tr></thead><tbody id="hist"></tbody></table>
+  </div>
+  <p class="note">※ 提案説明用のデモ画面です。数値は架空で、この端末のブラウザ内にだけ保存されます（サーバー送信なし）。</p>
+  <p class="reset"><a href="#" id="reset">初期状態に戻す</a></p>
+</main>
+<script>
+(function () {
+  const KEY = 'bolt-demo-NT-2026-0001';
+  const BASE = { init: 50.0, theo: 32.4, meas: 32.0,
+    hist: [
+      { t: '2026-08-20 10:12', k: 'in',   s: '入荷・初期長登録 50.0m', r: 50.0 },
+      { t: '2026-08-27 14:03', k: 'sale', s: '販売 3.0m', r: 47.0 },
+      { t: '2026-09-02 11:40', k: 'sale', s: '販売 5.5m', r: 41.5 },
+      { t: '2026-09-05 16:21', k: 'sale', s: '販売 2.6m', r: 38.9 },
+      { t: '2026-09-08 09:30', k: 'fix',  s: '実測 38.5m（差異 +0.4m）→ 補正', r: 38.5 },
+      { t: '2026-09-10 13:15', k: 'sale', s: '販売 4.1m', r: 34.4 },
+      { t: '2026-09-13 15:48', k: 'sale', s: '販売 2.0m', r: 32.4 },
+    ] };
+  let st;
+  function load() { try { st = JSON.parse(localStorage.getItem(KEY)) || null; } catch (e) { st = null; } if (!st) st = JSON.parse(JSON.stringify(BASE)); }
+  function save() { try { localStorage.setItem(KEY, JSON.stringify(st)); } catch (e) {} }
+  const $ = id => document.getElementById(id);
+  const f1 = n => (Math.round(n * 10) / 10).toFixed(1);
+  function stamp() { const d = new Date(), z = n => String(n).padStart(2, '0'); return `${d.getFullYear()}-${z(d.getMonth()+1)}-${z(d.getDate())} ${z(d.getHours())}:${z(d.getMinutes())}`; }
+  function render() {
+    $('init').innerHTML = f1(st.init) + '<small>m</small>';
+    $('theo').innerHTML = f1(st.theo) + '<small>m</small>';
+    $('meas').innerHTML = f1(st.meas) + '<small>m</small>';
+    const d = st.theo - st.meas; $('diff').innerHTML = (d >= 0 ? '+' : '') + f1(d) + '<small>m</small>';
+    const pct = Math.max(0, Math.min(100, st.theo / st.init * 100)); $('barfill').style.width = pct.toFixed(1) + '%'; $('barlabel').textContent = '残 ' + pct.toFixed(1) + '%';
+    const lab = { in: '入荷', sale: '販売', fix: '補正' };
+    $('hist').innerHTML = st.hist.slice().reverse().map(h => `<tr><td>${h.t}</td><td><span class="tag ${h.k}">${lab[h.k]}</span></td><td>${h.s}</td><td class="num">${f1(h.r)}m</td></tr>`).join('');
+  }
+  $('now').textContent = stamp();
+  $('btnSale').onclick = () => { $('saleCard').style.display = ''; $('fixCard').style.display = 'none'; $('saleLen').focus(); };
+  $('btnFix').onclick = () => { $('fixCard').style.display = ''; $('saleCard').style.display = 'none'; $('fixLen').focus(); };
+  $('saleCancel').onclick = () => { $('saleCard').style.display = 'none'; };
+  $('fixCancel').onclick = () => { $('fixCard').style.display = 'none'; };
+  $('saleForm').onsubmit = e => { e.preventDefault(); const v = parseFloat($('saleLen').value); if (!(v > 0)) return;
+    st.theo = Math.max(0, st.theo - v); st.hist.push({ t: stamp(), k: 'sale', s: `販売 ${f1(v)}m`, r: st.theo }); save(); render(); $('saleLen').value = ''; $('saleCard').style.display = 'none'; };
+  $('fixForm').onsubmit = e => { e.preventDefault(); const v = parseFloat($('fixLen').value); if (!(v >= 0)) return;
+    const d = st.theo - v; st.hist.push({ t: stamp(), k: 'fix', s: `実測 ${f1(v)}m（差異 ${d >= 0 ? '+' : ''}${f1(d)}m）→ 補正`, r: v }); st.meas = v; st.theo = v; save(); render(); $('fixLen').value = ''; $('fixCard').style.display = 'none'; };
+  $('reset').onclick = e => { e.preventDefault(); try { localStorage.removeItem(KEY); } catch (er) {} load(); render(); };
+  load(); render();
+})();
+</script>
+</body>
+</html>
